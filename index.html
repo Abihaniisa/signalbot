@@ -3,40 +3,814 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <meta name="theme-color" content="#080C10">
-  <title>EUR/USD Signal Intelligence — V4</title>
+  <title>BTC/USD AI Signal Bot</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      margin: 0;
-      padding: 0;
-      background-color: #080C10;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      overscroll-behavior: none;
-      touch-action: pan-y;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 12px;
+      padding-bottom: 30px;
     }
-    #root {
-      height: 100vh;
+    .container { max-width: 550px; margin: 0 auto; }
+    .card {
+      background: #111;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      border: 1px solid #222;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #d4a574;
+      border-left: 3px solid #d4a574;
+      padding-left: 10px;
+    }
+    .signal-box {
+      background: #1a1a1a;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 14px;
+      border: 1px solid #333;
+    }
+    .signal-title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin-bottom: 12px; }
+    .signal-buy { color: #27ae60; }
+    .signal-sell { color: #e74c3c; }
+    .signal-none { color: #888; }
+    .price-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+    .price-label { color: #888; font-size: 12px; }
+    .price-value { font-family: monospace; font-size: 15px; font-weight: 600; color: #f0f0f0; }
+    .green { color: #27ae60; }
+    .red { color: #e74c3c; }
+    .yellow { color: #f39c12; }
+    .gray { color: #888; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    button {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: #ddd;
+      padding: 10px 14px;
+      border-radius: 40px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s;
       width: 100%;
-      overflow: hidden;
+      margin-top: 6px;
     }
+    button:active { background: #2a2a2a; transform: scale(0.97); }
+    .btn-primary { background: #d4a574; border-color: #d4a574; color: #0a0a0a; font-weight: 600; }
+    .btn-danger { background: #2c1a1a; border-color: #e74c3c; color: #e74c3c; }
+    .btn-success { background: #1a2a1a; border-color: #27ae60; color: #27ae60; }
+    .log-area { background: #0d0d0d; border-radius: 12px; padding: 10px; font-family: monospace; font-size: 11px; color: #888; max-height: 150px; overflow-y: auto; }
+    .journal-item { background: #0f0f0f; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid; }
+    .badge { background: #1e1e1e; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+    hr { border-color: #222; margin: 10px 0; }
+    .footer { font-size: 10px; text-align: center; color: #555; margin-top: 20px; }
+    .pattern-tag { background: #1a1a1a; padding: 4px 8px; border-radius: 20px; font-size: 10px; display: inline-block; margin-right: 4px; margin-bottom: 4px; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script>
-    // Global error handler for API failures
-    window.addEventListener('error', function(e) {
-      if (e.message && e.message.includes('Failed to fetch')) {
-        console.warn('API fetch failed — CORS or network issue. Deploy to Vercel for live data.');
+<div class="container" id="app">
+  <div class="flex-between" style="margin-bottom: 8px;">
+    <span style="font-size: 12px; color: #888;">⚡ BTC/USD · 0.01 lot · $100</span>
+    <span id="statusBadge" class="badge">🟡 INIT</span>
+  </div>
+
+  <!-- Signal Box -->
+  <div class="signal-box" id="signalCard">
+    <div class="signal-title" id="signalTitle">—</div>
+    <div class="price-row"><span class="price-label">Entry</span><span class="price-value" id="signalEntry">—</span></div>
+    <div class="price-row"><span class="price-label">Stop Loss</span><span class="price-value red" id="signalSL">—</span></div>
+    <div class="price-row"><span class="price-label">Take Profit</span><span class="price-value green" id="signalTP">—</span></div>
+    <div class="price-row"><span class="price-label">RR</span><span class="price-value" id="signalRR">—</span></div>
+    <div class="price-row"><span class="price-label">Entry Type</span><span class="price-value" id="signalType">—</span></div>
+    <div id="patternTags" style="margin-top: 8px;"></div>
+  </div>
+
+  <!-- Account -->
+  <div class="card">
+    <h3>💰 Virtual Account</h3>
+    <div class="flex-between"><span class="gray">Balance</span><span id="balance" style="font-weight:700;">$100.00</span></div>
+    <div class="flex-between"><span class="gray">Equity</span><span id="equity" style="font-weight:700;">$100.00</span></div>
+    <div class="flex-between"><span class="gray">Drawdown</span><span id="drawdown">0.0%</span></div>
+    <hr>
+    <div class="flex-between"><span class="gray">Health Score</span><span id="healthScore">—</span></div>
+    <div class="flex-between"><span class="gray">Confidence</span><span id="confidence">—</span></div>
+  </div>
+
+  <!-- Active Strategy -->
+  <div class="card">
+    <h3>🧠 Active Strategy</h3>
+    <div id="patternDesc" class="gray" style="font-size:12px;">—</div>
+    <div class="flex-between" style="margin-top:6px;"><span class="gray">Train WR</span><span id="trainWR">—</span></div>
+    <div class="flex-between"><span class="gray">Val WR</span><span id="valWR">—</span></div>
+  </div>
+
+  <!-- Open Trade -->
+  <div class="card" id="openTradeCard" style="display:none;">
+    <h3>📈 Open Position</h3>
+    <div class="flex-between"><span class="gray">Direction</span><span id="openDir">—</span></div>
+    <div class="flex-between"><span class="gray">Entry</span><span id="openEntry">—</span></div>
+    <div class="flex-between"><span class="gray">SL / TP</span><span id="openSLTP">—</span></div>
+    <div class="flex-between"><span class="gray">Unrealized P&L</span><span id="openPL">$0.00</span></div>
+    <button id="closeTradeBtn" class="btn-danger">CLOSE TRADE</button>
+  </div>
+
+  <!-- Journal -->
+  <div class="card">
+    <h3>📜 Journal (last 5)</h3>
+    <div id="journalList" class="log-area" style="max-height: 200px;">—</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <h3>🚀 Controls</h3>
+    <button id="runDiscoveryBtn" class="btn-primary">🔄 Force Discovery</button>
+    <div id="discoveryLog" class="log-area" style="margin-top:10px;">Ready.</div>
+  </div>
+
+  <div class="footer">Virtual account only. 0.01 lot. 1:3 RR. BTC/USD. Auto-trading. Backfill enabled.</div>
+</div>
+
+<script>
+// ============================================
+// BTC/USD AI SIGNAL BOT v3.0
+// FULLY AUTONOMOUS | ML DISCOVERY | BACKFILL | AUTO-TRADING
+// var only | mobile responsive | Acode ready
+// ============================================
+
+// ========== CONFIGURATION ==========
+var SYMBOL = "BTC/USD";
+var INTERVAL_1M = "1min";
+var OUTPUT_SIZE = 5000;        // 5000 1-min candles = ~3.5 days
+var STARTING_BALANCE = 100.00;
+var LOT_SIZE = 0.01;
+var MIN_RR = 3.0;
+var HOLDING_BARS_15M = 16;     // 4 hours (16 * 15min)
+var TRAIN_RATIO = 0.70;
+var MIN_TRAIN_TRADES = 15;
+var MIN_VAL_TRADES = 10;
+var BACKFILL_THRESHOLD_MS = 3600000;  // 1 hour
+
+// API
+var TD_KEY = "64b0ff83311a4eada579b609b9306ed7";
+
+// ========== GLOBAL STATE ==========
+var allCandles1M = [];           // raw 1-min candles
+var candles5M = [];              // aggregated from 1M
+var candles15M = [];
+var candles1H = [];
+var features15M = [];
+var atrs15M = [];
+var currentStrategy = null;
+var journal = [];
+var account = { balance: STARTING_BALANCE, equity: STARTING_BALANCE, peakBalance: STARTING_BALANCE };
+var openTrade = null;
+var lastSignal = null;
+var lastSignalTime = 0;
+var lastSignalFp = "";
+var discoveryLogs = [];
+var healthScore = 100;
+var confidenceScore = 50;
+var confidenceHistory = [];
+var isDiscovering = false;
+var backfillInProgress = false;
+
+// ========== LOCAL STORAGE ==========
+function saveToLocal() {
+  try {
+    localStorage.setItem("btc_journal", JSON.stringify(journal));
+    localStorage.setItem("btc_account", JSON.stringify(account));
+    localStorage.setItem("btc_strategy", JSON.stringify(currentStrategy));
+    localStorage.setItem("btc_openTrade", JSON.stringify(openTrade));
+    localStorage.setItem("btc_lastOpen", Date.now().toString());
+  } catch(e) {}
+}
+function loadFromLocal() {
+  try {
+    var j = localStorage.getItem("btc_journal"); if(j) journal = JSON.parse(j);
+    var a = localStorage.getItem("btc_account"); if(a) account = JSON.parse(a);
+    var s = localStorage.getItem("btc_strategy"); if(s) currentStrategy = JSON.parse(s);
+    var ot = localStorage.getItem("btc_openTrade"); if(ot && ot !== "null") openTrade = JSON.parse(ot);
+  } catch(e) {}
+}
+
+// ========== HELPERS ==========
+function addLog(msg) {
+  discoveryLogs.unshift(msg);
+  if(discoveryLogs.length > 20) discoveryLogs.pop();
+  var logDiv = document.getElementById("discoveryLog");
+  if(logDiv) logDiv.innerHTML = discoveryLogs.map(function(l){ return "<div>"+l+"</div>"; }).join("");
+}
+function showToast(msg, type) {
+  var t = document.createElement("div");
+  t.textContent = msg;
+  t.style.cssText = "position:fixed;bottom:20px;left:10px;right:10px;background:#222;color:#fff;padding:12px;border-radius:30px;text-align:center;z-index:9999;font-size:13px;border-left:4px solid " + (type==='error'?'#e74c3c':'#27ae60');
+  document.body.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 3000);
+}
+
+// ========== DATA SANITIZATION (1-min candles) ==========
+function sanitizeCandles(raw) {
+  var valid = [];
+  var seen = {};
+  for(var i=0; i<raw.length; i++) {
+    var c = raw[i];
+    var o = parseFloat(c.open);
+    var h = parseFloat(c.high);
+    var l = parseFloat(c.low);
+    var cl = parseFloat(c.close);
+    var ts = c.datetime;
+    if(isNaN(o)||isNaN(h)||isNaN(l)||isNaN(cl)) continue;
+    if(h < l) continue;
+    if(h < Math.max(o,cl)) continue;
+    if(l > Math.min(o,cl)) continue;
+    if(seen[ts]) continue;
+    seen[ts] = true;
+    valid.push({ timestamp: new Date(ts).getTime(), datetime: ts, open: o, high: h, low: l, close: cl });
+  }
+  valid.sort(function(a,b){ return a.timestamp - b.timestamp; });
+  return valid;
+}
+
+// ========== TIMEFRAME AGGREGATION (SAME WINDOW) ==========
+function aggregateCandles(baseCandles, factor) {
+  var result = [];
+  for(var i=0; i+factor <= baseCandles.length; i+=factor) {
+    var block = baseCandles.slice(i, i+factor);
+    var open = block[0].open;
+    var close = block[block.length-1].close;
+    var high = block[0].high;
+    var low = block[0].low;
+    for(var j=0; j<block.length; j++) {
+      if(block[j].high > high) high = block[j].high;
+      if(block[j].low < low) low = block[j].low;
+    }
+    result.push({ timestamp: block[0].timestamp, datetime: block[0].datetime, open: open, high: high, low: low, close: close });
+  }
+  return result;
+}
+
+// ========== FEATURE EXTRACTION (15M) ==========
+function computeATR(candles, period) {
+  var atrArr = new Array(candles.length).fill(null);
+  for(var i=1; i<candles.length; i++) {
+    var tr = Math.max(candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i-1].close),
+      Math.abs(candles[i].low - candles[i-1].close));
+    if(i < period) { atrArr[i] = tr; continue; }
+    if(i === period) {
+      var sum = 0;
+      for(var j=1; j<=period; j++) {
+        var t = Math.max(candles[j].high - candles[j].low,
+          Math.abs(candles[j].high - candles[j-1].close),
+          Math.abs(candles[j].low - candles[j-1].close));
+        sum += t;
       }
+      atrArr[i] = sum / period;
+    } else {
+      atrArr[i] = (atrArr[i-1] * (period-1) + tr) / period;
+    }
+  }
+  return atrArr;
+}
+
+function computeEMA(closes, period) {
+  var k = 2 / (period+1);
+  var emas = new Array(closes.length).fill(null);
+  for(var i=0; i<closes.length; i++) {
+    if(i===0) { emas[i] = closes[i]; continue; }
+    emas[i] = closes[i] * k + emas[i-1] * (1-k);
+  }
+  return emas;
+}
+
+function computeRSI(closes, period) {
+  var rsis = new Array(closes.length).fill(null);
+  var gainAvg = 0, lossAvg = 0;
+  for(var i=1; i<closes.length; i++) {
+    var delta = closes[i] - closes[i-1];
+    var gain = delta > 0 ? delta : 0;
+    var loss = delta < 0 ? -delta : 0;
+    if(i <= period) {
+      gainAvg += gain / period;
+      lossAvg += loss / period;
+      if(i === period) rsis[i] = lossAvg === 0 ? 100 : 100 - 100 / (1 + gainAvg/lossAvg);
+    } else {
+      gainAvg = (gainAvg*(period-1) + gain) / period;
+      lossAvg = (lossAvg*(period-1) + loss) / period;
+      rsis[i] = lossAvg === 0 ? 100 : 100 - 100 / (1 + gainAvg/lossAvg);
+    }
+  }
+  return rsis;
+}
+
+function getSession(ts) {
+  var d = new Date(ts);
+  var h = d.getUTCHours();
+  if(h>=0 && h<7) return "ASIAN";
+  if(h>=7 && h<12) return "LONDON";
+  if(h>=12 && h<21) return "NY";
+  return "OFF";
+}
+
+function extractFeatures15M(candles, atrArr, ema20Arr, rsiArr) {
+  var feat = [];
+  for(var i=0; i<candles.length; i++) {
+    if(i<20 || !atrArr[i] || atrArr[i]===0) { feat.push(null); continue; }
+    var c = candles[i];
+    var prev = candles[i-1];
+    var higherHigh = c.high > prev.high;
+    var higherLow = c.low > prev.low;
+    var lowerHigh = c.high < prev.high;
+    var lowerLow = c.low < prev.low;
+    var isBullish = c.close > c.open;
+    var isBearish = c.close < c.open;
+    var rsi = rsiArr[i] || 50;
+    var emaRel = ema20Arr[i] !== null ? (c.close > ema20Arr[i] ? "ABOVE" : "BELOW") : "UNKNOWN";
+    var session = getSession(c.timestamp);
+    var atr = atrArr[i];
+    feat.push({
+      higherHigh: higherHigh, higherLow: higherLow, lowerHigh: lowerHigh, lowerLow: lowerLow,
+      isBullish: isBullish, isBearish: isBearish, rsi14: rsi, ema20Relation: emaRel,
+      session: session, atr: atr, close: c.close, high: c.high, low: c.low, timestamp: c.timestamp
     });
-  </script>
+  }
+  return feat;
+}
+
+// ========== CANDIDATE GENERATION (ML) ==========
+function generateCandidates() {
+  var cands = [];
+  var id = 0;
+  var sessions = ["ASIAN","LONDON","NY","OFF"];
+  for(var s=0; s<sessions.length; s++) {
+    cands.push({ id: id++, direction: "BUY", conditions: ["higherHigh","higherLow"], session: sessions[s] });
+    cands.push({ id: id++, direction: "BUY", conditions: ["higherHigh","higherLow","isBullish"], session: sessions[s] });
+    cands.push({ id: id++, direction: "BUY", conditions: ["higherHigh","isBullish"], session: sessions[s] });
+    cands.push({ id: id++, direction: "SELL", conditions: ["lowerHigh","lowerLow"], session: sessions[s] });
+    cands.push({ id: id++, direction: "SELL", conditions: ["lowerHigh","lowerLow","isBearish"], session: sessions[s] });
+    cands.push({ id: id++, direction: "SELL", conditions: ["lowerHigh","isBearish"], session: sessions[s] });
+  }
+  return cands;
+}
+
+function matchesCondition(f, cond, session) {
+  if(!f) return false;
+  if(cond === "higherHigh" && !f.higherHigh) return false;
+  if(cond === "higherLow" && !f.higherLow) return false;
+  if(cond === "lowerHigh" && !f.lowerHigh) return false;
+  if(cond === "lowerLow" && !f.lowerLow) return false;
+  if(cond === "isBullish" && !f.isBullish) return false;
+  if(cond === "isBearish" && !f.isBearish) return false;
+  if(session && f.session !== session) return false;
+  return true;
+}
+
+function evaluateCandidateOnSet(cand, features, candles, atrArr) {
+  var outcomes = [];
+  for(var i=0; i<features.length-HOLDING_BARS_15M-1; i++) {
+    var f = features[i];
+    if(!f) continue;
+    var match = true;
+    for(var ci=0; ci<cand.conditions.length; ci++) {
+      if(!matchesCondition(f, cand.conditions[ci], cand.session)) { match=false; break; }
+    }
+    if(!match) continue;
+    var entryCandle = candles[i];
+    var atr = atrArr[i];
+    if(!atr) continue;
+    var sl = cand.direction === "BUY" ? entryCandle.close - atr : entryCandle.close + atr;
+    var tp = cand.direction === "BUY" ? entryCandle.close + 3*atr : entryCandle.close - 3*atr;
+    var win = false;
+    var hit = false;
+    for(var j=i+1; j<=i+HOLDING_BARS_15M && j<candles.length; j++) {
+      var cc = candles[j];
+      if(cand.direction === "BUY") {
+        if(cc.low <= sl) { hit=true; break; }
+        if(cc.high >= tp) { win=true; hit=true; break; }
+      } else {
+        if(cc.high >= sl) { hit=true; break; }
+        if(cc.low <= tp) { win=true; hit=true; break; }
+      }
+    }
+    if(hit) outcomes.push({ win: win, rr: win ? MIN_RR : -1 });
+  }
+  return outcomes;
+}
+
+function binomialPValue(wins, n) {
+  if(n<20) return 1.0;
+  var mean = n*0.5;
+  var std = Math.sqrt(n*0.25);
+  var z = (wins - 0.5 - mean) / std;
+  var t = 1 / (1 + 0.3275911 * Math.abs(z));
+  var a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
+  var erf = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t * Math.exp(-z*z);
+  var p = 0.5 * (1 + (z>0?1:-1) * erf);
+  return 1 - p;
+}
+
+// ========== DERIVE ENTRY TYPE FROM PATTERN ==========
+function deriveEntryType(cand, features, candles, atrArr, indices) {
+  if(!indices || indices.length<5) return "STOP";
+  var upCount = 0, downCount = 0;
+  for(var i=0; i<Math.min(indices.length,20); i++) {
+    var idx = indices[i];
+    if(idx+1 >= candles.length) continue;
+    var nextPrice = candles[idx+1].close;
+    var entryPrice = candles[idx].close;
+    if(nextPrice > entryPrice * 1.001) upCount++;
+    else if(nextPrice < entryPrice * 0.999) downCount++;
+  }
+  if(cand.direction === "BUY") return (upCount > downCount*1.5) ? "STOP" : "LIMIT";
+  else return (downCount > upCount*1.5) ? "STOP" : "LIMIT";
+}
+
+// ========== DISCOVERY ENGINE ==========
+async function runDiscovery(candles, feat, atrArr) {
+  var n = candles.length;
+  var split = Math.floor(n * TRAIN_RATIO);
+  var trainC = candles.slice(0,split);
+  var trainF = feat.slice(0,split);
+  var trainA = atrArr.slice(0,split);
+  var valC = candles.slice(split);
+  var valF = feat.slice(split);
+  var valA = atrArr.slice(split);
+  var candidates = generateCandidates();
+  addLog("🔍 Evaluating " + candidates.length + " candidates...");
+  var best = null, bestScore = -1;
+  for(var ci=0; ci<candidates.length; ci++) {
+    var cand = candidates[ci];
+    var outcomes = evaluateCandidateOnSet(cand, trainF, trainC, trainA);
+    if(outcomes.length < MIN_TRAIN_TRADES) continue;
+    var wins = outcomes.filter(function(o){ return o.win; }).length;
+    var pv = binomialPValue(wins, outcomes.length);
+    if(pv >= 0.05) continue;
+    var winRate = wins / outcomes.length;
+    var valOut = evaluateCandidateOnSet(cand, valF, valC, valA);
+    if(valOut.length < MIN_VAL_TRADES) continue;
+    var valWins = valOut.filter(function(o){ return o.win; }).length;
+    var valWR = valWins / valOut.length;
+    if(valWR < 0.5) continue;
+    var score = winRate * 100 + (wins/outcomes.length)*10;
+    if(score > bestScore) {
+      best = cand;
+      bestScore = score;
+      best.trainWR = winRate*100;
+      best.trainTrades = outcomes.length;
+      best.valWR = valWR*100;
+      best.valTrades = valOut.length;
+      best.entryType = deriveEntryType(cand, trainF, trainC, trainA, outcomes.map(function(o,i){ return o.entryIndex; }));
+    }
+  }
+  if(best) {
+    addLog("✅ PATTERN FOUND: " + best.direction + " | Train WR: " + best.trainWR.toFixed(1)+"% ("+best.trainTrades+" trades) | Val WR: "+best.valWR.toFixed(1)+"%");
+    return best;
+  }
+  addLog("❌ No valid pattern found.");
+  return null;
+}
+
+// ========== PRODUCTION SIGNAL ==========
+function evaluateLiveSignal(features, lastCandle, atr, strategy) {
+  if(!strategy || !features) return null;
+  var match = true;
+  for(var ci=0; ci<strategy.conditions.length; ci++) {
+    if(!matchesCondition(features, strategy.conditions[ci], strategy.session)) { match=false; break; }
+  }
+  if(!match) return null;
+  var entry = lastCandle.close;
+  var sl = strategy.direction === "BUY" ? entry - atr : entry + atr;
+  var tp = strategy.direction === "BUY" ? entry + 3*atr : entry - 3*atr;
+  return { direction: strategy.direction, entry: entry, sl: sl, tp: tp, rr: MIN_RR, entryType: strategy.entryType || "STOP" };
+}
+
+// ========== BACKFILL (Missed Trades) ==========
+async function runBackfill() {
+  if(!currentStrategy || backfillInProgress) return;
+  var lastOpen = localStorage.getItem("btc_lastOpen");
+  if(!lastOpen) return;
+  var elapsed = Date.now() - parseInt(lastOpen);
+  if(elapsed < BACKFILL_THRESHOLD_MS) return;
+  backfillInProgress = true;
+  addLog("🕰️ Backfilling " + Math.round(elapsed/60000) + " minutes...");
+  try {
+    var url = "https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=15min&outputsize=500&apikey=" + TD_KEY;
+    var resp = await fetch(url);
+    var data = await resp.json();
+    if(data.values && data.values.length) {
+      var raw = data.values;
+      var candles = sanitizeCandles(raw);
+      var atrArr = computeATR(candles, 14);
+      var closes = candles.map(function(c){ return c.close; });
+      var ema20 = computeEMA(closes, 20);
+      var rsi14 = computeRSI(closes, 14);
+      var feat = extractFeatures15M(candles, atrArr, ema20, rsi14);
+      var missedPL = 0;
+      var missedTrades = 0;
+      for(var i=0; i<feat.length-16; i++) {
+        var f = feat[i];
+        if(!f) continue;
+        var match = true;
+        for(var ci=0; ci<currentStrategy.conditions.length; ci++) {
+          if(!matchesCondition(f, currentStrategy.conditions[ci], currentStrategy.session)) { match=false; break; }
+        }
+        if(match) {
+          var entryCandle = candles[i];
+          var atrVal = atrArr[i];
+          if(atrVal) {
+            var sl = currentStrategy.direction === "BUY" ? entryCandle.close - atrVal : entryCandle.close + atrVal;
+            var tp = currentStrategy.direction === "BUY" ? entryCandle.close + 3*atrVal : entryCandle.close - 3*atrVal;
+            var win = false;
+            for(var j=i+1; j<=i+16 && j<candles.length; j++) {
+              var cc = candles[j];
+              if(currentStrategy.direction === "BUY") {
+                if(cc.low <= sl) break;
+                if(cc.high >= tp) { win=true; break; }
+              } else {
+                if(cc.high >= sl) break;
+                if(cc.low <= tp) { win=true; break; }
+              }
+            }
+            var pl = win ? (Math.abs(tp - entryCandle.close) * LOT_SIZE * 0.1) : (-Math.abs(sl - entryCandle.close) * LOT_SIZE * 0.1);
+            missedPL += pl;
+            missedTrades++;
+            journal.push({
+              direction: currentStrategy.direction,
+              entry: entryCandle.close,
+              exit: win ? tp : sl,
+              win: win,
+              pl: pl,
+              status: "CLOSED",
+              timestamp: Date.now(),
+              isBackfill: true,
+              backfillNote: "Recovered from closed period"
+            });
+          }
+        }
+      }
+      if(missedTrades > 0) {
+        account.balance += missedPL;
+        if(account.balance > account.peakBalance) account.peakBalance = account.balance;
+        account.equity = account.balance;
+        saveToLocal();
+        addLog("📦 Backfill complete: " + missedTrades + " trades recovered, P&L: " + (missedPL>=0?"+":"") + "$" + missedPL.toFixed(2));
+        showToast("Backfill: " + missedTrades + " missed trades recovered!", "success");
+      } else {
+        addLog("📦 Backfill complete: No missed trades found.");
+      }
+    }
+  } catch(e) { console.error(e); addLog("Backfill error: " + e.message); }
+  backfillInProgress = false;
+  localStorage.setItem("btc_lastOpen", Date.now().toString());
+}
+
+// ========== UPDATE UI ==========
+function updateUI() {
+  var badge = document.getElementById("statusBadge");
+  if(currentStrategy) badge.innerHTML = "🟢 ACTIVE";
+  else badge.innerHTML = "🔴 NO STRATEGY";
+  document.getElementById("balance").innerHTML = "$" + account.balance.toFixed(2);
+  document.getElementById("equity").innerHTML = "$" + account.equity.toFixed(2);
+  var dd = account.peakBalance > 0 ? ((account.peakBalance - account.balance)/account.peakBalance*100).toFixed(1) : 0;
+  document.getElementById("drawdown").innerHTML = dd + "%";
+  if(currentStrategy) {
+    document.getElementById("patternDesc").innerHTML = currentStrategy.direction + " · " + (currentStrategy.conditions ? currentStrategy.conditions.join(", ") : "") + (currentStrategy.session ? " @ "+currentStrategy.session : "");
+    document.getElementById("trainWR").innerHTML = (currentStrategy.trainWR ? currentStrategy.trainWR.toFixed(1)+"%" : "—");
+    document.getElementById("valWR").innerHTML = (currentStrategy.valWR ? currentStrategy.valWR.toFixed(1)+"%" : "—");
+  }
+  var closed = journal.filter(function(t){ return t.status === "CLOSED"; });
+  if(closed.length > 0) {
+    var wins = closed.filter(function(t){ return t.win; }).length;
+    var wr = wins/closed.length*100;
+    var sumGain=0,sumLoss=0;
+    for(var i=0;i<closed.length;i++){ if(closed[i].win) sumGain+=Math.abs(closed[i].pl); else sumLoss+=Math.abs(closed[i].pl);}
+    var pf = sumLoss===0 ? (sumGain>0?99:1) : sumGain/sumLoss;
+    var normPF = Math.min(100, Math.max(0, (pf-1)*100));
+    var rawConf = wr*0.5 + normPF*0.3;
+    confidenceHistory.push(rawConf);
+    if(confidenceHistory.length>10) confidenceHistory.shift();
+    var avgHist = 0; for(var h=0;h<confidenceHistory.length;h++) avgHist+=confidenceHistory[h];
+    avgHist = avgHist/confidenceHistory.length;
+    var smooth = rawConf*0.7 + avgHist*0.3;
+    confidenceScore = Math.min(95, Math.max(0, smooth));
+    healthScore = wr*0.6 + normPF*0.4;
+    document.getElementById("healthScore").innerHTML = Math.round(healthScore)+"%";
+    document.getElementById("confidence").innerHTML = Math.round(confidenceScore)+"%";
+  }
+  var jDiv = document.getElementById("journalList");
+  if(journal.length===0) jDiv.innerHTML = "—";
+  else {
+    var jhtml = "";
+    for(var jj=Math.max(0,journal.length-5); jj<journal.length; jj++) {
+      var t = journal[jj];
+      jhtml += '<div class="journal-item" style="border-left-color:'+(t.win?'#27ae60':'#e74c3c')+'"><div class="flex-between"><span><b>'+t.direction+'</b> @ '+t.entry.toFixed(1)+'</span><span>'+(t.win?'WIN +$'+t.pl.toFixed(2):'LOSS -$'+Math.abs(t.pl).toFixed(2))+'</span>'+(t.isBackfill?'<span class="badge">backfill</span>':'')+'</div></div>';
+    }
+    jDiv.innerHTML = jhtml;
+  }
+  var openCard = document.getElementById("openTradeCard");
+  if(openTrade) {
+    openCard.style.display = "block";
+    document.getElementById("openDir").innerHTML = openTrade.direction;
+    document.getElementById("openEntry").innerHTML = openTrade.entry.toFixed(1);
+    document.getElementById("openSLTP").innerHTML = openTrade.sl.toFixed(1)+" / "+openTrade.tp.toFixed(1);
+    var lastC = candles15M[candles15M.length-1];
+    var unreal = 0;
+    if(lastC) unreal = openTrade.direction === "BUY" ? lastC.close - openTrade.entry : openTrade.entry - lastC.close;
+    var unrealPL = unreal * LOT_SIZE * 0.1;
+    document.getElementById("openPL").innerHTML = (unrealPL>=0?"+":"") + "$" + unrealPL.toFixed(2);
+  } else { openCard.style.display = "none"; }
+}
+
+// ========== FETCH DATA & MAIN LOOP ==========
+async function fetchAndProcess() {
+  try {
+    // Step 1: Fetch 1-minute candles (determines date range)
+    var url1m = "https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=1min&outputsize=5000&apikey=" + TD_KEY;
+    var resp1m = await fetch(url1m);
+    var data1m = await resp1m.json();
+    if(!data1m.values) throw new Error("No 1min data");
+    var raw1m = data1m.values;
+    var candles1m = sanitizeCandles(raw1m);
+    if(candles1m.length < 100) throw new Error("Insufficient 1min candles");
+    
+    // Step 2: Aggregate to higher timeframes (SAME WINDOW)
+    candles5M = aggregateCandles(candles1m, 5);
+    candles15M = aggregateCandles(candles1m, 15);
+    candles1H = aggregateCandles(candles1m, 60);
+    
+    // Use 15M for analysis
+    var closes15M = candles15M.map(function(c){ return c.close; });
+    var atr15M = computeATR(candles15M, 14);
+    var ema20_15M = computeEMA(closes15M, 20);
+    var rsi14_15M = computeRSI(closes15M, 14);
+    var features = extractFeatures15M(candles15M, atr15M, ema20_15M, rsi14_15M);
+    features15M = features;
+    atrs15M = atr15M;
+    
+    document.getElementById("statusBadge").innerHTML = "🟢 LIVE";
+    
+    // Discovery if no strategy
+    if(!currentStrategy && !isDiscovering && candles15M.length > 200) {
+      isDiscovering = true;
+      addLog("🚀 Auto-discovery started...");
+      var newStrat = await runDiscovery(candles15M, features15M, atrs15M);
+      if(newStrat) { currentStrategy = newStrat; saveToLocal(); addLog("✅ Strategy deployed!"); }
+      isDiscovering = false;
+      updateUI();
+    }
+    
+    // Generate live signal
+    if(currentStrategy && features15M.length > 0) {
+      var lastIdx = features15M.length-1;
+      var lastFeat = features15M[lastIdx];
+      var lastCandle = candles15M[lastIdx];
+      var atrVal = atrs15M[lastIdx];
+      if(lastFeat && atrVal) {
+        var sig = evaluateLiveSignal(lastFeat, lastCandle, atrVal, currentStrategy);
+        if(sig) {
+          var fp = sig.direction + "_" + sig.entry.toFixed(1);
+          var nowT = Date.now();
+          if(fp !== lastSignalFp || nowT - lastSignalTime > 3600000) {
+            lastSignalFp = fp;
+            lastSignalTime = nowT;
+            lastSignal = sig;
+            document.getElementById("signalTitle").innerHTML = '<span class="'+(sig.direction==="BUY"?"signal-buy":"signal-sell")+'">'+sig.direction+' '+ (sig.entryType || "STOP")+'</span>';
+            document.getElementById("signalEntry").innerHTML = "$"+sig.entry.toFixed(2);
+            document.getElementById("signalSL").innerHTML = "$"+sig.sl.toFixed(2);
+            document.getElementById("signalTP").innerHTML = "$"+sig.tp.toFixed(2);
+            document.getElementById("signalRR").innerHTML = "1:"+MIN_RR;
+            document.getElementById("signalType").innerHTML = sig.entryType || "STOP";
+            var tagsHtml = "";
+            if(currentStrategy.conditions) {
+              for(var ci=0; ci<currentStrategy.conditions.length; ci++) {
+                tagsHtml += '<span class="pattern-tag">'+currentStrategy.conditions[ci]+'</span>';
+              }
+              if(currentStrategy.session) tagsHtml += '<span class="pattern-tag">'+currentStrategy.session+'</span>';
+            }
+            document.getElementById("patternTags").innerHTML = tagsHtml;
+            // AUTO-TRADE: open position automatically
+            if(!openTrade) {
+              openTrade = { direction: sig.direction, entry: sig.entry, sl: sig.sl, tp: sig.tp, openTime: Date.now() };
+              saveToLocal();
+              showToast("Auto-trade opened: " + sig.direction + " @ $" + sig.entry.toFixed(2), "success");
+              updateUI();
+            }
+          }
+        } else {
+          document.getElementById("signalTitle").innerHTML = '<span class="signal-none">NO SIGNAL</span>';
+        }
+      }
+    }
+    
+    // Auto-close trade if TP/SL hit
+    if(openTrade && candles15M.length > 0) {
+      var lastPrice = candles15M[candles15M.length-1].close;
+      var closed = false;
+      var isWin = false;
+      if(openTrade.direction === "BUY") {
+        if(lastPrice >= openTrade.tp) { isWin = true; closed = true; }
+        else if(lastPrice <= openTrade.sl) { isWin = false; closed = true; }
+      } else {
+        if(lastPrice <= openTrade.tp) { isWin = true; closed = true; }
+        else if(lastPrice >= openTrade.sl) { isWin = false; closed = true; }
+      }
+      if(closed) {
+        var pl = isWin ? (Math.abs(openTrade.tp - openTrade.entry) * LOT_SIZE * 0.1) : (-Math.abs(openTrade.sl - openTrade.entry) * LOT_SIZE * 0.1);
+        journal.push({
+          direction: openTrade.direction,
+          entry: openTrade.entry,
+          exit: lastPrice,
+          win: isWin,
+          pl: pl,
+          status: "CLOSED",
+          timestamp: Date.now(),
+          isBackfill: false
+        });
+        account.balance += pl;
+        if(account.balance > account.peakBalance) account.peakBalance = account.balance;
+        account.equity = account.balance;
+        openTrade = null;
+        saveToLocal();
+        showToast(isWin ? "✅ AUTO-CLOSE: WIN +$"+pl.toFixed(2) : "❌ AUTO-CLOSE: LOSS -$"+Math.abs(pl).toFixed(2), isWin?"success":"error");
+        updateUI();
+        // Auto re-discovery on degradation
+        var recent = journal.slice(-10).filter(function(j){ return j.status === "CLOSED"; });
+        var losses = recent.filter(function(j){ return !j.win; }).length;
+        if(losses >= 7 && currentStrategy && !isDiscovering) {
+          addLog("⚠️ Performance degraded, re-running discovery...");
+          isDiscovering = true;
+          var newS = await runDiscovery(candles15M, features15M, atrs15M);
+          if(newS) { currentStrategy = newS; saveToLocal(); addLog("✅ Strategy updated!"); }
+          isDiscovering = false;
+        }
+      }
+    }
+    
+    updateUI();
+    saveToLocal();
+    localStorage.setItem("btc_lastOpen", Date.now().toString());
+    
+  } catch(err) {
+    console.error(err);
+    document.getElementById("statusBadge").innerHTML = "⚠️ ERROR";
+    addLog("ERROR: " + err.message);
+  }
+}
+
+// ========== MANUAL DISCOVERY ==========
+document.getElementById("runDiscoveryBtn").onclick = async function() {
+  if(isDiscovering) { showToast("Discovery already running", "error"); return; }
+  if(!candles15M.length) { showToast("Load data first", "error"); return; }
+  isDiscovering = true;
+  addLog("🔁 Manual discovery...");
+  var newStrat = await runDiscovery(candles15M, features15M, atrs15M);
+  if(newStrat) { currentStrategy = newStrat; saveToLocal(); addLog("✅ Strategy updated!"); }
+  isDiscovering = false;
+  updateUI();
+  showToast("Discovery complete", "success");
+};
+
+document.getElementById("closeTradeBtn").onclick = function() {
+  if(!openTrade) return;
+  var lastC = candles15M[candles15M.length-1];
+  var exitPrice = lastC ? lastC.close : openTrade.entry;
+  var isWin = (openTrade.direction === "BUY" && exitPrice >= openTrade.tp) || (openTrade.direction === "SELL" && exitPrice <= openTrade.tp);
+  var pl = isWin ? (Math.abs(openTrade.tp - openTrade.entry) * LOT_SIZE * 0.1) : (-Math.abs(openTrade.sl - openTrade.entry) * LOT_SIZE * 0.1);
+  journal.push({
+    direction: openTrade.direction,
+    entry: openTrade.entry,
+    exit: exitPrice,
+    win: isWin,
+    pl: pl,
+    status: "CLOSED",
+    timestamp: Date.now(),
+    isBackfill: false
+  });
+  account.balance += pl;
+  if(account.balance > account.peakBalance) account.peakBalance = account.balance;
+  account.equity = account.balance;
+  openTrade = null;
+  saveToLocal();
+  showToast(isWin ? "Manual close: WIN" : "Manual close: LOSS", isWin?"success":"error");
+  updateUI();
+};
+
+// ========== INIT ==========
+loadFromLocal();
+fetchAndProcess();
+setInterval(fetchAndProcess, 300000); // every 5 min
+setInterval(updateUI, 1000);
+setTimeout(function(){ runBackfill(); }, 2000);
+</script>
 </body>
 </html>
