@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/td/:path*", "destination": "/api/proxy" },
-    { "source": "/api/fmp/:path*", "destination": "/api/proxy" }
-  ]
-}
